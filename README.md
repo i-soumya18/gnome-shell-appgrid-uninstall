@@ -59,10 +59,13 @@ ninja -C build
 ```
 
 ```bash
+REPO="$HOME/Projects/gnome-shell-appgrid-uninstall"
 EXT_UUID="appgrid-uninstall@i-soumya18.github.io"
-mkdir -p "$HOME/.local/share/gnome-shell/extensions/$EXT_UUID"
-rsync -a --delete extension/ "$HOME/.local/share/gnome-shell/extensions/$EXT_UUID/"
-glib-compile-schemas "$HOME/.local/share/gnome-shell/extensions/$EXT_UUID/schemas/"
+DEST="$HOME/.local/share/gnome-shell/extensions/$EXT_UUID"
+
+mkdir -p "$DEST"
+rsync -a --delete "$REPO/extension/" "$DEST/"
+glib-compile-schemas "$DEST/schemas"
 gnome-extensions enable "$EXT_UUID"
 ```
 

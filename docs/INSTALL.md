@@ -2,11 +2,16 @@
 
 ## 1) End-user install (local)
 
+The commands below work from any current directory.
+
 ```bash
+REPO="$HOME/Projects/gnome-shell-appgrid-uninstall"
 EXT_UUID="appgrid-uninstall@i-soumya18.github.io"
-mkdir -p "$HOME/.local/share/gnome-shell/extensions/$EXT_UUID"
-rsync -a --delete extension/ "$HOME/.local/share/gnome-shell/extensions/$EXT_UUID/"
-glib-compile-schemas "$HOME/.local/share/gnome-shell/extensions/$EXT_UUID/schemas/"
+DEST="$HOME/.local/share/gnome-shell/extensions/$EXT_UUID"
+
+mkdir -p "$DEST"
+rsync -a --delete "$REPO/extension/" "$DEST/"
+glib-compile-schemas "$DEST/schemas"
 gnome-extensions enable "$EXT_UUID"
 ```
 
@@ -40,3 +45,4 @@ meson setup build --prefix=/usr -Dinstall_helper_service_metadata=true
 - Extension not visible: verify UUID folder name exactly matches `metadata.json`
 - Settings schema errors: re-run `glib-compile-schemas` in installed schema directory
 - Polkit prompt not shown: ensure a polkit agent is running in your desktop session
+- `rsync: change_dir .../extension failed`: set `REPO` to your actual clone path
