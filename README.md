@@ -26,7 +26,7 @@ Right-click any app in the GNOME App Grid and uninstall it directly.
 ## Compatibility
 
 - Ubuntu 22.04 LTS / 24.04 LTS
-- GNOME Shell 42-51 (best effort beyond the original target matrix)
+- GNOME Shell 42-50 (best effort beyond the original target matrix)
 
 ## Current Release
 
