@@ -7,11 +7,22 @@ Right-click any app in the GNOME App Grid and uninstall it directly.
 ## Features
 
 - App-grid context menu injection with clean enable/disable lifecycle
-- Package-type detection for:
-  - Flatpak
-  - Snap
-  - APT/dpkg
-  - RPM/DNF
+- Package-type detection and uninstallation for:
+  - Flatpak (User & System scopes)
+  - Snap (All desktop paths, `X-SnapInstanceName`, `Exec=/snap/bin/...`)
+  - APT / dpkg (Debian, Ubuntu, Mint, Pop!_OS)
+  - DNF / DNF5 / RPM (Fedora, RHEL, CentOS, Rocky, Alma)
+  - Zypper / RPM (openSUSE, SLES)
+  - Pacman / ALPM (Arch Linux, Manjaro, EndeavourOS, Garuda)
+  - APK (Alpine Linux)
+  - XBPS (Void Linux)
+  - EOPKG (Solus)
+  - AppImage (Standalone, AppImageLauncher, Gear Lever)
+  - Web Apps / PWAs (Google Chrome, Chromium, Brave, Microsoft Edge, Firefox PWA)
+  - Homebrew / Linuxbrew
+  - Pipx (Python applications)
+  - Steam Games
+  - Custom / Manual Desktop Applications & Tarballs
 - Interactive uninstall confirmation dialog
 - Protected system-app guardrails (prevents destructive removals of critical apps)
 - Progress/success/error notifications via GNOME Message Tray

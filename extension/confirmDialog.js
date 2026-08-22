@@ -52,8 +52,9 @@ export class ConfirmDialog {
     const dialog = new ModalDialog.ModalDialog({styleClass: 'prompt-dialog'});
 
     const includePkgInfo = this._options.showPackageType !== false;
-    const pkgInfo = includePkgInfo && this._pkg
-      ? `\n${this._t('Package type')}: ${this._pkg.type.toUpperCase()} · ${this._pkg.identifier}`
+    const pkgLabel = this._formatPackageLabel(this._pkg);
+    const pkgInfo = includePkgInfo && pkgLabel
+      ? `\n${this._t('Type')}: ${pkgLabel}`
       : '';
 
     const headline = new St.Label({
@@ -95,6 +96,49 @@ export class ConfirmDialog {
     });
 
     dialog.open();
+  }
+
+  _formatPackageLabel(pkg) {
+    if (!pkg || !pkg.type)
+      return null;
+
+    const id = pkg.identifier ? ` · ${pkg.identifier}` : '';
+    switch (pkg.type) {
+    case 'flatpak':
+      return `Flatpak${pkg.scope === 'user' ? ' (User)' : pkg.scope === 'system' ? ' (System)' : ''}${id}`;
+    case 'snap':
+      return `Snap${id}`;
+    case 'apt':
+      return `APT / dpkg${id}`;
+    case 'dnf':
+      return `DNF${id}`;
+    case 'rpm':
+      return `RPM${id}`;
+    case 'zypper':
+      return `Zypper${id}`;
+    case 'pacman':
+      return `Pacman / Arch${id}`;
+    case 'apk':
+      return `Alpine APK${id}`;
+    case 'xbps':
+      return `Void XBPS${id}`;
+    case 'eopkg':
+      return `Solus eopkg${id}`;
+    case 'appimage':
+      return `AppImage${id}`;
+    case 'webapp':
+      return `${pkg.details?.browser ?? 'Web App'} (PWA)${id}`;
+    case 'brew':
+      return `Homebrew${id}`;
+    case 'pipx':
+      return `Pipx Python package${id}`;
+    case 'steam':
+      return `Steam Game${id}`;
+    case 'custom':
+      return `Desktop entry & files${id}`;
+    default:
+      return `${pkg.type.toUpperCase()}${id}`;
+    }
   }
 
   _t(text) {

@@ -190,5 +190,56 @@ export async function run() {
     assertTrue(warningDialogOpened, 'Expected protected app warning dialog to open');
   }));
 
+  tests.push(await runAsyncTest('dispatches AppImage uninstallation', async () => {
+    const manager = new UninstallManager(null, fakeApp('AppImage App'), {
+      settings: fakeSettings(),
+      notification: fakeNotification(),
+      DetectorClass: detectorFor({type: PackageType.APPIMAGE, identifier: 'app.AppImage', details: {}}),
+      GuardClass: UnprotectedGuard,
+    });
+
+    let appImageUninstalled = false;
+    manager._uninstallAppImage = () => {
+      appImageUninstalled = true;
+    };
+
+    manager._performUninstall({type: PackageType.APPIMAGE, identifier: 'app.AppImage'});
+    assertTrue(appImageUninstalled, 'Expected AppImage uninstall routine to run');
+  }));
+
+  tests.push(await runAsyncTest('dispatches Web App uninstallation', async () => {
+    const manager = new UninstallManager(null, fakeApp('Web App'), {
+      settings: fakeSettings(),
+      notification: fakeNotification(),
+      DetectorClass: detectorFor({type: PackageType.WEBAPP, identifier: 'pwa-id', details: {}}),
+      GuardClass: UnprotectedGuard,
+    });
+
+    let webAppUninstalled = false;
+    manager._uninstallWebApp = () => {
+      webAppUninstalled = true;
+    };
+
+    manager._performUninstall({type: PackageType.WEBAPP, identifier: 'pwa-id'});
+    assertTrue(webAppUninstalled, 'Expected WebApp uninstall routine to run');
+  }));
+
+  tests.push(await runAsyncTest('dispatches Pacman uninstallation', async () => {
+    const manager = new UninstallManager(null, fakeApp('Arch App'), {
+      settings: fakeSettings(),
+      notification: fakeNotification(),
+      DetectorClass: detectorFor({type: PackageType.PACMAN, identifier: 'arch-pkg'}),
+      GuardClass: UnprotectedGuard,
+    });
+
+    let pacmanUninstalled = false;
+    manager._uninstallPacman = () => {
+      pacmanUninstalled = true;
+    };
+
+    manager._performUninstall({type: PackageType.PACMAN, identifier: 'arch-pkg'});
+    assertTrue(pacmanUninstalled, 'Expected Pacman uninstall routine to run');
+  }));
+
   return tests;
 }

@@ -5,7 +5,7 @@
 1. User right-clicks an app icon in GNOME App Grid.
 2. `appGridMenu.js` injects and handles `Uninstall` action.
 3. `uninstallManager.js` orchestrates protection checks, detection, confirmation, and execution.
-4. `packageDetector.js` determines install source (Flatpak/Snap/APT/RPM/DNF).
+4. `packageDetector.js` determines install source (Flatpak/Snap/APT/DNF/RPM/Zypper/Pacman/APK/XBPS/EOPKG/AppImage/Web Apps/Pipx/Homebrew/Steam/Custom).
 5. `confirmDialog.js` prompts user before destructive action.
 6. `notificationHandler.js` reports progress and final state.
 7. For privileged package managers, uninstall runs via `pkexec` under Polkit policy control.

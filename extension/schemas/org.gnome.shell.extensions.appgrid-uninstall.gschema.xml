@@ -32,6 +32,66 @@
       <summary>Enable uninstall option for APT/dpkg apps</summary>
     </key>
 
+    <key name="enable-for-dnf" type="b">
+      <default>true</default>
+      <summary>Enable uninstall option for DNF/RPM apps</summary>
+    </key>
+
+    <key name="enable-for-zypper" type="b">
+      <default>true</default>
+      <summary>Enable uninstall option for Zypper/RPM apps</summary>
+    </key>
+
+    <key name="enable-for-pacman" type="b">
+      <default>true</default>
+      <summary>Enable uninstall option for Pacman/Arch apps</summary>
+    </key>
+
+    <key name="enable-for-apk" type="b">
+      <default>true</default>
+      <summary>Enable uninstall option for Alpine APK apps</summary>
+    </key>
+
+    <key name="enable-for-xbps" type="b">
+      <default>true</default>
+      <summary>Enable uninstall option for Void XBPS apps</summary>
+    </key>
+
+    <key name="enable-for-eopkg" type="b">
+      <default>true</default>
+      <summary>Enable uninstall option for Solus eopkg apps</summary>
+    </key>
+
+    <key name="enable-for-appimage" type="b">
+      <default>true</default>
+      <summary>Enable uninstall option for AppImage apps</summary>
+    </key>
+
+    <key name="enable-for-webapp" type="b">
+      <default>true</default>
+      <summary>Enable uninstall option for Web Apps / PWAs</summary>
+    </key>
+
+    <key name="enable-for-brew" type="b">
+      <default>true</default>
+      <summary>Enable uninstall option for Homebrew / Linuxbrew apps</summary>
+    </key>
+
+    <key name="enable-for-pipx" type="b">
+      <default>true</default>
+      <summary>Enable uninstall option for Pipx apps</summary>
+    </key>
+
+    <key name="enable-for-steam" type="b">
+      <default>true</default>
+      <summary>Enable uninstall option for Steam games</summary>
+    </key>
+
+    <key name="enable-for-custom" type="b">
+      <default>true</default>
+      <summary>Enable uninstall option for custom/manual desktop apps</summary>
+    </key>
+
     <key name="notify-on-success" type="b">
       <default>true</default>
       <summary>Show notification on successful uninstall</summary>

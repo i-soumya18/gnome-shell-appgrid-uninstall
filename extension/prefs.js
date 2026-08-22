@@ -63,6 +63,18 @@ export default class AppGridUninstallPreferences extends ExtensionPreferences {
       ['enable-for-flatpak', _('Flatpak')],
       ['enable-for-snap', _('Snap')],
       ['enable-for-apt', _('APT / dpkg')],
+      ['enable-for-dnf', _('DNF / RPM')],
+      ['enable-for-zypper', _('Zypper / openSUSE')],
+      ['enable-for-pacman', _('Pacman / Arch')],
+      ['enable-for-apk', _('Alpine APK')],
+      ['enable-for-xbps', _('Void XBPS')],
+      ['enable-for-eopkg', _('Solus eopkg')],
+      ['enable-for-appimage', _('AppImage')],
+      ['enable-for-webapp', _('Web Apps (PWA)')],
+      ['enable-for-brew', _('Homebrew / Linuxbrew')],
+      ['enable-for-pipx', _('Pipx')],
+      ['enable-for-steam', _('Steam Games')],
+      ['enable-for-custom', _('Custom / Manual Desktop Apps')],
     ]) {
       const row = new Adw.SwitchRow({title: label});
       settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
