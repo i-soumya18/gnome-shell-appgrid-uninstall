@@ -39,5 +39,19 @@ export function run() {
     assertTrue(guardWithSettings.isProtected(app));
   }));
 
+  tests.push(runTest('validates directory safety correctly', () => {
+    // Root and system hierarchies must be rejected
+    assertEqual(SystemAppGuard.isSafeDirectoryToDelete('/'), false);
+    assertEqual(SystemAppGuard.isSafeDirectoryToDelete('/opt'), false);
+    assertEqual(SystemAppGuard.isSafeDirectoryToDelete('/opt/'), false);
+    assertEqual(SystemAppGuard.isSafeDirectoryToDelete('/usr'), false);
+    assertEqual(SystemAppGuard.isSafeDirectoryToDelete('/usr/bin'), false);
+    assertEqual(SystemAppGuard.isSafeDirectoryToDelete('/usr/share/applications'), false);
+
+    // Dedicated valid subdirectories in /opt/ must be allowed
+    assertEqual(SystemAppGuard.isSafeDirectoryToDelete('/opt/antigravity-ide'), true);
+    assertEqual(SystemAppGuard.isSafeDirectoryToDelete('/opt/my-app/'), true);
+  }));
+
   return tests;
 }

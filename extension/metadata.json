@@ -2,7 +2,7 @@
   "uuid": "appgrid-uninstall@i-soumya18.github.io",
   "name": "App Grid Uninstall",
   "description": "Right-click any app in the GNOME App Grid to uninstall it directly, without opening GNOME Software or a terminal.",
-  "version": 2,
+  "version": 7,
   "shell-version": ["42", "43", "44", "45", "46", "47", "48", "49", "50"],
   "url": "https://github.com/i-soumya18/gnome-shell-appgrid-uninstall",
   "settings-schema": "org.gnome.shell.extensions.appgrid-uninstall"

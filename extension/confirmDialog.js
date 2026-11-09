@@ -132,10 +132,15 @@ export class ConfirmDialog {
       return `Homebrew${id}`;
     case 'pipx':
       return `Pipx Python package${id}`;
+    case 'nix':
+      return `Nix package${id}`;
     case 'steam':
       return `Steam Game${id}`;
-    case 'custom':
-      return `Desktop entry & files${id}`;
+    case 'custom': {
+      const scopeLabel = pkg.details?.isUserLevel ? 'User' : 'System';
+      const dirInfo = pkg.details?.installDir ? ` (${pkg.details.installDir})` : '';
+      return `${scopeLabel} Standalone App${dirInfo}${id}`;
+    }
     default:
       return `${pkg.type.toUpperCase()}${id}`;
     }

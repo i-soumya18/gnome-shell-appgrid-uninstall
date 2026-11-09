@@ -1,18 +1,18 @@
 # Release Guide
 
-## GNOME Extensions Publication Block (v1.1.1)
+## GNOME Extensions Publication Block (v1.2.0)
 
-This checklist is pre-filled for the exact v1.1.1 artifact already published on GitHub.
+This checklist is pre-filled for the v1.2.0 artifact ready for publication on extensions.gnome.org and GitHub.
 
 ### Artifact Packet (Exact Values)
 
-- Git tag: `v1.1.1`
-- GitHub release page: `https://github.com/i-soumya18/gnome-shell-appgrid-uninstall/releases/tag/v1.1.1`
-- Release ZIP asset URL: `https://github.com/i-soumya18/gnome-shell-appgrid-uninstall/releases/download/v1.1.1/appgrid-uninstall%40i-soumya18.github.io_v2.zip`
-- Asset filename: `appgrid-uninstall@i-soumya18.github.io_v2.zip`
-- Asset checksum (from GitHub release metadata): `ace0e697a0869392b3735ccfaa5d4bdc49aec0fb4a937a6dfb65aae2e40137fe`
+- Git tag: `v1.2.0`
+- GitHub release page: `https://github.com/i-soumya18/gnome-shell-appgrid-uninstall/releases/tag/v1.2.0`
+- Release ZIP asset URL: `https://github.com/i-soumya18/gnome-shell-appgrid-uninstall/releases/download/v1.2.0/appgrid-uninstall%40i-soumya18.github.io_v7.zip`
+- Asset filename: `appgrid-uninstall@i-soumya18.github.io_v7.zip`
+- Asset checksum: `23b19200f1a6fc1dc32a44e66cb3ab9ed0588e4d8f16e449f479396cba7d7469`
 - UUID: `appgrid-uninstall@i-soumya18.github.io`
-- Extension metadata version (integer): `2`
+- Extension metadata version (integer): `7`
 
 ### Submission Form Values (Copy/Paste)
 
@@ -22,7 +22,7 @@ This checklist is pre-filled for the exact v1.1.1 artifact already published on 
 - Source code URL: `https://github.com/i-soumya18/gnome-shell-appgrid-uninstall`
 - Bug tracker URL: `https://github.com/i-soumya18/gnome-shell-appgrid-uninstall/issues`
 - License: `GPL-2.0-or-later`
-- Supported GNOME versions: `42, 43, 44, 45, 46, 47, 48, 49`
+- Supported GNOME versions: `42, 43, 44, 45, 46, 47, 48, 49, 50`
 - Short description:
 
 ```text
@@ -35,12 +35,22 @@ Right-click any app in the GNOME App Grid to uninstall it directly, without open
 Adds a native "Uninstall" option to the app icon context menu in GNOME Shell App Grid.
 
 Features:
-- Detects package type (Flatpak, Snap, APT/dpkg, RPM, DNF)
-- Confirmation dialog before uninstall
-- System app protection guard
-- Progress/success/error notifications
+- Package-type detection & removal:
+  • Flatpak (User & System scopes)
+  • Snap packages
+  • Native package managers: APT/dpkg, DNF/RPM, Zypper, Pacman/Arch, Alpine APK, Void XBPS, Solus eopkg
+  • Standalone & Tarball applications (/opt, ~/Applications, desktop entries, symlinks)
+  • Web Apps / PWAs (Chrome, Brave, Edge, Chromium, Firefox PWA, GNOME Web/Epiphany, Mint Web App Manager)
+  • AppImage binaries (User & System scopes)
+  • Steam Games (Native, Flatpak, Snap runtimes)
+  • Nix & GNU Guix packages
+  • Python packages via Pipx
+  • Homebrew / Linuxbrew formulae
+- Interactive confirmation dialog displaying package type and install directory
+- Strict system app protection guardrails & directory safety blacklists
+- Progress/success/error notifications via GNOME Message Tray
 - Polkit-backed privileged uninstall paths for system packages
-- Preferences for confirmation and package-type behavior
+- Extension preferences for package-type toggles and confirmation behavior
 
 Project: https://github.com/i-soumya18/gnome-shell-appgrid-uninstall
 Issues: https://github.com/i-soumya18/gnome-shell-appgrid-uninstall/issues

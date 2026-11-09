@@ -241,5 +241,47 @@ export async function run() {
     assertTrue(pacmanUninstalled, 'Expected Pacman uninstall routine to run');
   }));
 
+  tests.push(await runAsyncTest('dispatches Nix uninstallation', async () => {
+    const manager = new UninstallManager(null, fakeApp('Nix App'), {
+      settings: fakeSettings(),
+      notification: fakeNotification(),
+      DetectorClass: detectorFor({type: PackageType.NIX, identifier: 'nix-pkg'}),
+      GuardClass: UnprotectedGuard,
+    });
+
+    let nixUninstalled = false;
+    manager._uninstallNix = () => {
+      nixUninstalled = true;
+    };
+
+    manager._performUninstall({type: PackageType.NIX, identifier: 'nix-pkg'});
+    assertTrue(nixUninstalled, 'Expected Nix uninstall routine to run');
+  }));
+
+  tests.push(await runAsyncTest('dispatches Custom standalone uninstallation', async () => {
+    const manager = new UninstallManager(null, fakeApp('Custom App'), {
+      settings: fakeSettings(),
+      notification: fakeNotification(),
+      DetectorClass: detectorFor({
+        type: PackageType.CUSTOM,
+        identifier: 'my-custom-app',
+        details: {isUserLevel: false, installDir: '/opt/my-custom-app'},
+      }),
+      GuardClass: UnprotectedGuard,
+    });
+
+    let customUninstalled = false;
+    manager._uninstallCustom = () => {
+      customUninstalled = true;
+    };
+
+    manager._performUninstall({
+      type: PackageType.CUSTOM,
+      identifier: 'my-custom-app',
+      details: {isUserLevel: false, installDir: '/opt/my-custom-app'},
+    });
+    assertTrue(customUninstalled, 'Expected Custom uninstall routine to run');
+  }));
+
   return tests;
 }

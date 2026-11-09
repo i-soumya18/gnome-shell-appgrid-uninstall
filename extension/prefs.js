@@ -73,6 +73,7 @@ export default class AppGridUninstallPreferences extends ExtensionPreferences {
       ['enable-for-webapp', _('Web Apps (PWA)')],
       ['enable-for-brew', _('Homebrew / Linuxbrew')],
       ['enable-for-pipx', _('Pipx')],
+      ['enable-for-nix', _('Nix Packages')],
       ['enable-for-steam', _('Steam Games')],
       ['enable-for-custom', _('Custom / Manual Desktop Apps')],
     ]) {

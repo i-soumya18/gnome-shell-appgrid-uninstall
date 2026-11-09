@@ -18,15 +18,16 @@ Right-click any app in the GNOME App Grid and uninstall it directly.
   - XBPS (Void Linux)
   - EOPKG (Solus)
   - AppImage (Standalone, AppImageLauncher, Gear Lever)
-  - Web Apps / PWAs (Google Chrome, Chromium, Brave, Microsoft Edge, Firefox PWA)
+  - Web Apps / PWAs (Google Chrome, Chromium, Brave, Microsoft Edge, Firefox PWA, GNOME Web / Epiphany, Web App Manager)
   - Homebrew / Linuxbrew
   - Pipx (Python applications)
-  - Steam Games
-  - Custom / Manual Desktop Applications & Tarballs
-- Interactive uninstall confirmation dialog
-- Protected system-app guardrails (prevents destructive removals of critical apps)
+  - Nix / GNU Guix (nix profile, nix-env)
+  - Steam Games (Native, Flatpak, Snap runtimes)
+  - Custom / Standalone Applications & Tarballs (/opt, ~/Applications, desktop entries, symlinks)
+- Interactive uninstall confirmation dialog with install path display
+- Protected system-app guardrails & strict directory safety blacklists
 - Progress/success/error notifications via GNOME Message Tray
-- Polkit-based privileged uninstall path (`pkexec`) for system package managers
+- Polkit-based privileged uninstall path (`pkexec`) for system packages and standalone directories
 - Preferences panel in GNOME Extensions settings (behavior + package-type toggles)
 - Release packaging for:
   - extensions.gnome.org ZIP
@@ -37,12 +38,12 @@ Right-click any app in the GNOME App Grid and uninstall it directly.
 ## Compatibility
 
 - Ubuntu 22.04 LTS / 24.04 LTS
-- GNOME Shell 42-50 (best effort beyond the original target matrix)
+- GNOME Shell 42-50
 
 ## Current Release
 
-- Semantic release tag: v1.1.1
-- GNOME Extensions metadata version: 2
+- Semantic release tag: v1.2.0
+- GNOME Extensions metadata version: 7
 
 ## Project Status
 

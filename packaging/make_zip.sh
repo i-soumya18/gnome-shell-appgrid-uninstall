@@ -20,6 +20,7 @@ rm -f "$OUT_PATH"
     --exclude "*.pyc" \
     --exclude "__pycache__/*" \
     --exclude "*.swp" \
+    --exclude "*.bak" \
     --exclude "schemas/gschemas.compiled" \
     --exclude "meson.build" \
     --exclude ".DS_Store" \

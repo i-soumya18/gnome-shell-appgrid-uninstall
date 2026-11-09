@@ -19,6 +19,7 @@ const PACKAGE_SETTINGS_KEYS = Object.freeze({
   [PackageType.WEBAPP]: 'enable-for-webapp',
   [PackageType.HOMEBREW]: 'enable-for-brew',
   [PackageType.PIPX]: 'enable-for-pipx',
+  [PackageType.NIX]: 'enable-for-nix',
   [PackageType.STEAM]: 'enable-for-steam',
   [PackageType.CUSTOM]: 'enable-for-custom',
 });
@@ -131,6 +132,9 @@ export class UninstallManager {
       break;
     case PackageType.PIPX:
       this._uninstallPipx(pkg.identifier);
+      break;
+    case PackageType.NIX:
+      this._uninstallNix(pkg.identifier);
       break;
     case PackageType.STEAM:
       this._uninstallSteam(pkg.identifier);
@@ -287,6 +291,7 @@ export class UninstallManager {
     const appName = this._getAppName(this._t('application'));
     const desktopPath = pkg.details?.desktopPath;
     const binaryPath = pkg.details?.binaryPath;
+    const rmBin = this._resolveBinary('/bin/rm', 'rm');
 
     try {
       if (desktopPath && GLib.file_test(desktopPath, GLib.FileTest.EXISTS)) {
@@ -296,13 +301,21 @@ export class UninstallManager {
 
       if (binaryPath && GLib.file_test(binaryPath, GLib.FileTest.EXISTS)) {
         const homeDir = GLib.get_home_dir();
-        if (binaryPath.startsWith(homeDir)) {
+        if (homeDir && binaryPath.startsWith(homeDir)) {
           const bFile = Gio.File.new_for_path(binaryPath);
           try {
             bFile.trash(null);
           } catch (_) {
             bFile.delete(null);
           }
+        } else {
+          // System-wide AppImage outside home: require pkexec
+          this._runSubprocess(
+            ['pkexec', rmBin, '-f', binaryPath],
+            this._format(this._t('%s was successfully uninstalled.'), appName),
+            this._format(this._t('Failed to uninstall %s.'), appName)
+          );
+          return;
         }
       }
 
@@ -323,11 +336,19 @@ export class UninstallManager {
     const appName = this._getAppName(this._t('application'));
     const desktopPath = pkg.details?.desktopPath;
     const webAppId = pkg.details?.webAppId;
+    const profilePath = pkg.details?.profilePath;
+    const rmBin = this._resolveBinary('/bin/rm', 'rm');
 
     try {
       if (desktopPath && GLib.file_test(desktopPath, GLib.FileTest.EXISTS)) {
         const dFile = Gio.File.new_for_path(desktopPath);
         dFile.delete(null);
+      }
+
+      if (profilePath && SystemAppGuard.isSafeDirectoryToDelete(profilePath)) {
+        try {
+          Gio.Subprocess.new([rmBin, '-rf', profilePath], Gio.SubprocessFlags.NONE);
+        } catch (_) {}
       }
 
       if (webAppId) {
@@ -378,42 +399,161 @@ export class UninstallManager {
     );
   }
 
+  _uninstallNix(identifier) {
+    const appName = this._getAppName(this._t('application'));
+    const nixBin = this._resolveBinary('/run/current-system/sw/bin/nix', 'nix');
+    const nixEnvBin = this._resolveBinary('/run/current-system/sw/bin/nix-env', 'nix-env');
+
+    if (GLib.find_program_in_path('nix') !== null) {
+      this._runSubprocess(
+        [nixBin, 'profile', 'remove', identifier],
+        this._format(this._t('%s was successfully uninstalled.'), appName),
+        this._format(this._t('Failed to uninstall %s.'), appName)
+      );
+    } else {
+      this._runSubprocess(
+        [nixEnvBin, '-e', identifier],
+        this._format(this._t('%s was successfully uninstalled.'), appName),
+        this._format(this._t('Failed to uninstall %s.'), appName)
+      );
+    }
+  }
+
   _uninstallSteam(appId) {
     const appName = this._getAppName(this._t('application'));
-    const steamBin = this._resolveBinary('/usr/bin/steam', 'steam');
     try {
-      Gio.Subprocess.new(
-        [steamBin, `steam://uninstall/${appId}`],
-        Gio.SubprocessFlags.NONE
-      );
+      Gio.AppInfo.launch_default_for_uri(`steam://uninstall/${appId}`, null);
       if (this._shouldNotifySuccess()) {
         this._notification.showSuccess(
           this._format(this._t('Triggered uninstall for %s in Steam.'), appName)
         );
       }
-    } catch (e) {
-      this._notification.showError(
-        this._format(this._t('Failed to uninstall %s.'), appName),
-        e.message
-      );
+    } catch (_) {
+      const steamBin = this._resolveBinary('/usr/bin/steam', 'steam');
+      try {
+        Gio.Subprocess.new(
+          [steamBin, `steam://uninstall/${appId}`],
+          Gio.SubprocessFlags.NONE
+        );
+        if (this._shouldNotifySuccess()) {
+          this._notification.showSuccess(
+            this._format(this._t('Triggered uninstall for %s in Steam.'), appName)
+          );
+        }
+      } catch (err) {
+        this._notification.showError(
+          this._format(this._t('Failed to uninstall %s.'), appName),
+          err.message
+        );
+      }
     }
+  }
+
+  _findSymlinksForApp(installDir, execPath, isUserLevel) {
+    const symlinks = [];
+    const binDirs = [];
+    const homeDir = GLib.get_home_dir();
+
+    if (isUserLevel && homeDir) {
+      binDirs.push(`${homeDir}/.local/bin`, `${homeDir}/bin`);
+    } else {
+      binDirs.push('/usr/local/bin');
+    }
+
+    for (const binDir of binDirs) {
+      try {
+        const dir = Gio.File.new_for_path(binDir);
+        if (!dir.query_exists(null))
+          continue;
+
+        const enumerator = dir.enumerate_children(
+          'standard::name,standard::is-symlink,standard::symlink-target',
+          Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS,
+          null
+        );
+
+        let info;
+        while ((info = enumerator.next_file(null)) !== null) {
+          if (info.get_is_symlink()) {
+            const target = info.get_symlink_target();
+            const childPath = `${binDir}/${info.get_name()}`;
+            if (target) {
+              const fullTarget = target.startsWith('/')
+                ? target
+                : GLib.canonicalize_filename(`${binDir}/${target}`, null);
+
+              const matchesDir = installDir && fullTarget.startsWith(installDir);
+              const matchesExec = execPath && (fullTarget === execPath);
+
+              if (matchesDir || matchesExec)
+                symlinks.push(childPath);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    return symlinks;
   }
 
   _uninstallCustom(pkg) {
     const appName = this._getAppName(this._t('application'));
     const desktopPath = pkg.details?.desktopPath;
-    const isUserLevel = pkg.details?.isUserLevel;
+    const installDir = pkg.details?.installDir;
+    const execPath = pkg.details?.execPath;
+    const isUserLevel = Boolean(pkg.details?.isUserLevel);
+
+    const isSafeInstallDir = installDir && SystemAppGuard.isSafeDirectoryToDelete(installDir);
+    const symlinks = this._findSymlinksForApp(
+      isSafeInstallDir ? installDir : null,
+      execPath,
+      isUserLevel
+    );
+
+    const rmBin = this._resolveBinary('/bin/rm', 'rm');
 
     if (isUserLevel) {
       try {
-        if (desktopPath && GLib.file_test(desktopPath, GLib.FileTest.EXISTS)) {
-          const dFile = Gio.File.new_for_path(desktopPath);
-          dFile.delete(null);
+        const toDelete = [];
+        if (desktopPath && GLib.file_test(desktopPath, GLib.FileTest.EXISTS))
+          toDelete.push(desktopPath);
+
+        for (const symlink of symlinks) {
+          if (GLib.file_test(symlink, GLib.FileTest.EXISTS))
+            toDelete.push(symlink);
         }
-        if (this._shouldNotifySuccess()) {
-          this._notification.showSuccess(
-            this._format(this._t('%s shortcut was removed.'), appName)
+
+        if (isSafeInstallDir && GLib.file_test(installDir, GLib.FileTest.IS_DIR))
+          toDelete.push(installDir);
+
+        if (toDelete.length > 0) {
+          const proc = Gio.Subprocess.new(
+            [rmBin, '-rf', ...toDelete],
+            Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
           );
+          proc.communicate_utf8_async(null, null, (self, result) => {
+            try {
+              self.communicate_utf8_finish(result);
+              if (self.get_exit_status() === 0) {
+                this._refreshDesktopDatabase(true);
+                if (this._shouldNotifySuccess()) {
+                  this._notification.showSuccess(
+                    this._format(this._t('%s was successfully uninstalled.'), appName)
+                  );
+                }
+              } else {
+                this._notification.showError(
+                  this._format(this._t('Failed to uninstall %s.'), appName),
+                  this._t('Could not remove application files.')
+                );
+              }
+            } catch (e) {
+              this._notification.showError(
+                this._format(this._t('Failed to uninstall %s.'), appName),
+                e.message
+              );
+            }
+          });
         }
       } catch (e) {
         this._notification.showError(
@@ -422,12 +562,38 @@ export class UninstallManager {
         );
       }
     } else {
-      const rmBin = this._resolveBinary('/bin/rm', 'rm');
-      this._runSubprocess(
-        ['pkexec', rmBin, '-f', desktopPath],
-        this._format(this._t('%s was successfully uninstalled.'), appName),
-        this._format(this._t('Failed to uninstall %s.'), appName)
-      );
+      // System-level standalone (e.g. /opt/antigravity-ide, /usr/share/applications/antigravity-ide.desktop)
+      const toDelete = [];
+      if (desktopPath && GLib.file_test(desktopPath, GLib.FileTest.EXISTS))
+        toDelete.push(desktopPath);
+
+      for (const symlink of symlinks) {
+        if (GLib.file_test(symlink, GLib.FileTest.EXISTS))
+          toDelete.push(symlink);
+      }
+
+      if (isSafeInstallDir && GLib.file_test(installDir, GLib.FileTest.IS_DIR))
+        toDelete.push(installDir);
+
+      if (toDelete.length > 0) {
+        this._runSubprocess(
+          ['pkexec', rmBin, '-rf', ...toDelete],
+          this._format(this._t('%s was successfully uninstalled.'), appName),
+          this._format(this._t('Failed to uninstall %s.'), appName)
+        );
+      }
+    }
+  }
+
+  _refreshDesktopDatabase(isUserLevel) {
+    if (GLib.find_program_in_path('update-desktop-database') !== null) {
+      try {
+        const homeDir = GLib.get_home_dir();
+        const path = isUserLevel && homeDir
+          ? `${homeDir}/.local/share/applications`
+          : '/usr/share/applications';
+        Gio.Subprocess.new(['update-desktop-database', path], Gio.SubprocessFlags.NONE);
+      } catch (_) {}
     }
   }
 

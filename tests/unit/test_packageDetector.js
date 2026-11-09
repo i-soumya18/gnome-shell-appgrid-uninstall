@@ -134,6 +134,52 @@ export async function run() {
     assertEqual(result.type, PackageType.HOMEBREW);
   }));
 
+  tests.push(await runAsyncTest('detects Flatpak with flags before app ID', async () => {
+    const app = fakeApp(
+      'calculator.desktop',
+      '/usr/share/applications/calculator.desktop',
+      'flatpak run --branch=stable --arch=x86_64 org.gnome.Calculator'
+    );
+    const result = await detector.detect(app);
+    assertEqual(result.type, PackageType.FLATPAK);
+    assertEqual(result.identifier, 'org.gnome.Calculator');
+  }));
+
+  tests.push(await runAsyncTest('detects GNOME Web (Epiphany) Web App', async () => {
+    const app = fakeApp(
+      'org.gnome.Epiphany.WebApp_test.desktop',
+      '/home/user/.local/share/applications/org.gnome.Epiphany.WebApp_test.desktop',
+      'epiphany --application-mode --profile=/home/user/.local/share/epiphany/app-test'
+    );
+    const result = await detector.detect(app);
+    assertEqual(result.type, PackageType.WEBAPP);
+    assertEqual(result.details.browser, 'GNOME Web (Epiphany)');
+  }));
+
+  tests.push(await runAsyncTest('detects Nix application', async () => {
+    const app = fakeApp(
+      'ripgrep.desktop',
+      '/home/user/.nix-profile/share/applications/ripgrep.desktop',
+      '/nix/store/a1b2c3d4-ripgrep-14.1.0/bin/rg'
+    );
+    const result = await detector.detect(app);
+    assertEqual(result.type, PackageType.NIX);
+    assertEqual(result.identifier, 'ripgrep-14.1.0');
+  }));
+
+  tests.push(await runAsyncTest('detects system standalone application like Antigravity IDE', async () => {
+    const app = fakeApp(
+      'antigravity-ide.desktop',
+      '/usr/share/applications/antigravity-ide.desktop',
+      '/opt/antigravity-ide/antigravity-ide'
+    );
+    const result = await detector.detect(app);
+    assertEqual(result.type, PackageType.CUSTOM);
+    assertEqual(result.identifier, 'antigravity-ide');
+    assertEqual(result.scope, 'system');
+    assertEqual(result.details.isUserLevel, false);
+  }));
+
   tests.push(await runAsyncTest('returns unknown on missing app info', async () => {
     const app = {get_id: () => 'x.desktop', get_app_info: () => null};
     const result = await detector.detect(app);

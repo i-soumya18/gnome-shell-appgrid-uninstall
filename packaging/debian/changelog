@@ -1,3 +1,11 @@
+gnome-shell-extension-appgrid-uninstall (1.2.0-1) unstable; urgency=medium
+
+  * Add universal detection & full cleanup for standalone apps and tarballs.
+  * Add support for Nix/Guix packages and Epiphany/Mint PWAs.
+  * Add GNOME Shell 50 compatibility.
+
+ -- Soumya <i.soumya18@example.com>  Mon, 09 Nov 2026 20:00:00 +0100
+
 gnome-shell-extension-appgrid-uninstall (1.0.0-1) unstable; urgency=medium
 
   * Initial packaging for GNOME app-grid uninstall extension.

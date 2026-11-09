@@ -1,6 +1,8 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
+import {SystemAppGuard} from './systemAppGuard.js';
+
 export const PackageType = Object.freeze({
   FLATPAK: 'flatpak',
   SNAP: 'snap',
@@ -16,6 +18,7 @@ export const PackageType = Object.freeze({
   WEBAPP: 'webapp',
   HOMEBREW: 'brew',
   PIPX: 'pipx',
+  NIX: 'nix',
   STEAM: 'steam',
   CUSTOM: 'custom',
   UNKNOWN: 'unknown',
@@ -69,14 +72,20 @@ export class PackageDetector {
     if (brewResult)
       return brewResult;
 
-    // 8. Check Native Linux Distribution Package Managers (dpkg, rpm, pacman, apk, xbps, eopkg)
-    const canonicalPath = this._getCanonicalPath(desktopFilePath);
+    // 8. Check Nix / GNU Guix
+    const nixResult = this._detectNix(desktopFilePath, keyFileData);
+    if (nixResult)
+      return nixResult;
 
-    const aptPkg = await this._detectApt(canonicalPath);
+    // 9. Check Native Linux Distribution Package Managers (dpkg, rpm, pacman, apk, xbps, eopkg)
+    const canonicalPath = this._getCanonicalPath(desktopFilePath);
+    const execBinary = this._extractExecBinary(keyFileData.exec);
+
+    const aptPkg = await this._detectApt(canonicalPath, execBinary);
     if (aptPkg)
       return {type: PackageType.APT, identifier: aptPkg, details: {desktopPath: desktopFilePath}};
 
-    const rpmPkg = await this._detectRpm(canonicalPath);
+    const rpmPkg = await this._detectRpm(canonicalPath, execBinary);
     if (rpmPkg) {
       if (GLib.find_program_in_path('zypper') !== null) {
         return {type: PackageType.ZYPPER, identifier: rpmPkg, details: {desktopPath: desktopFilePath}};
@@ -89,7 +98,7 @@ export class PackageDetector {
       };
     }
 
-    const pacmanPkg = await this._detectPacman(canonicalPath);
+    const pacmanPkg = await this._detectPacman(canonicalPath, execBinary);
     if (pacmanPkg)
       return {type: PackageType.PACMAN, identifier: pacmanPkg, details: {desktopPath: desktopFilePath}};
 
@@ -105,7 +114,7 @@ export class PackageDetector {
     if (eopkgPkg)
       return {type: PackageType.EOPKG, identifier: eopkgPkg, details: {desktopPath: desktopFilePath}};
 
-    // 9. Check Custom / User standalone desktop entries (e.g. JetBrains, manual tarballs in ~/.local/share/applications)
+    // 10. Check Custom / Standalone desktop entries (e.g. /opt/..., ~/Applications/..., ~/.local/share/applications/...)
     const customResult = this._detectCustom(appId, desktopFilePath, keyFileData);
     if (customResult)
       return customResult;
@@ -117,11 +126,13 @@ export class PackageDetector {
     const data = {
       exec: appInfo?.get_commandline?.() ?? '',
       icon: '',
+      path: '',
       xSnapInstanceName: '',
       xSnapAppName: '',
       xFlatpak: '',
       xAppImageVersion: '',
       xAppImageType: '',
+      xWebAppId: '',
       startupWMClass: '',
     };
 
@@ -139,11 +150,13 @@ export class PackageDetector {
 
           data.exec = getVal('Exec') || data.exec;
           data.icon = getVal('Icon');
+          data.path = getVal('Path');
           data.xSnapInstanceName = getVal('X-SnapInstanceName');
           data.xSnapAppName = getVal('X-SnapAppName');
           data.xFlatpak = getVal('X-Flatpak');
           data.xAppImageVersion = getVal('X-AppImage-Version');
           data.xAppImageType = getVal('X-AppImage-Type');
+          data.xWebAppId = getVal('X-WebApp-ID');
           data.startupWMClass = getVal('StartupWMClass');
         }
       }
@@ -157,7 +170,7 @@ export class PackageDetector {
   _getCanonicalPath(filePath) {
     try {
       const file = Gio.File.new_for_path(filePath);
-      const info = file.query_info('standard::symlink-target', Gio.FileQueryInfoFlags.NONE, null);
+      const info = file.query_info('standard::is-symlink,standard::symlink-target', Gio.FileQueryInfoFlags.NONE, null);
       if (info && info.get_is_symlink()) {
         const target = info.get_symlink_target();
         if (target) {
@@ -241,8 +254,8 @@ export class PackageDetector {
 
     const exec = keyFileData.exec || '';
     if (!ref && (exec.includes('flatpak run') || exec.startsWith('flatpak '))) {
-      const match = exec.match(/flatpak\s+run\s+([a-zA-Z0-9_.-]+)/);
-      if (match)
+      const match = exec.match(/flatpak\s+run\s+(?:--?[a-zA-Z0-9_.-]+(?:=[^\s]+)?\s+)*([a-zA-Z0-9_.-]+)/);
+      if (match && !match[1].startsWith('-'))
         ref = match[1];
     }
 
@@ -304,24 +317,49 @@ export class PackageDetector {
     const exec = keyFileData.exec || '';
     const hasAppIdFlag = exec.includes('--app-id=') || exec.includes('--app=');
     const isFirefoxPwa = filename.startsWith('firefoxpwa-') || exec.includes('firefoxpwa');
+    const isEpiphanyPwa = appId.startsWith('org.gnome.Epiphany.WebApp') ||
+                          desktopPath.includes('org.gnome.Epiphany.WebApp') ||
+                          exec.includes('epiphany --application-mode');
+    const isMintWebApp = Boolean(keyFileData.xWebAppId || exec.includes('webapp-manager') || exec.includes('ice '));
 
-    if (isChromePwa || hasAppIdFlag || isFirefoxPwa) {
-      let webAppId = null;
+    if (isChromePwa || hasAppIdFlag || isFirefoxPwa || isEpiphanyPwa || isMintWebApp) {
+      let webAppId = keyFileData.xWebAppId || null;
       const appIdMatch = exec.match(/--app-id=([a-zA-Z0-9_-]+)/);
       if (appIdMatch)
         webAppId = appIdMatch[1];
 
       let browser = 'Browser';
-      if (filename.includes('chrome') || exec.includes('chrome')) browser = 'Google Chrome';
-      else if (filename.includes('brave') || exec.includes('brave')) browser = 'Brave';
-      else if (filename.includes('msedge') || exec.includes('msedge')) browser = 'Microsoft Edge';
-      else if (filename.includes('chromium') || exec.includes('chromium')) browser = 'Chromium';
-      else if (isFirefoxPwa) browser = 'Firefox PWA';
+      let profilePath = null;
+
+      if (isEpiphanyPwa) {
+        browser = 'GNOME Web (Epiphany)';
+        const homeDir = GLib.get_home_dir();
+        const baseName = filename.replace(/\.desktop$/, '');
+        profilePath = `${homeDir}/.local/share/${baseName}`;
+        if (!GLib.file_test(profilePath, GLib.FileTest.IS_DIR)) {
+          const altProfile = `${homeDir}/.local/share/epiphany/app-${baseName}`;
+          if (GLib.file_test(altProfile, GLib.FileTest.IS_DIR))
+            profilePath = altProfile;
+        }
+        webAppId = baseName;
+      } else if (isMintWebApp) {
+        browser = 'Web App Manager';
+      } else if (filename.includes('chrome') || exec.includes('chrome')) {
+        browser = 'Google Chrome';
+      } else if (filename.includes('brave') || exec.includes('brave')) {
+        browser = 'Brave';
+      } else if (filename.includes('msedge') || exec.includes('msedge')) {
+        browser = 'Microsoft Edge';
+      } else if (filename.includes('chromium') || exec.includes('chromium')) {
+        browser = 'Chromium';
+      } else if (isFirefoxPwa) {
+        browser = 'Firefox PWA';
+      }
 
       return {
         type: PackageType.WEBAPP,
         identifier: webAppId || filename.replace(/\.desktop$/, ''),
-        details: {browser, webAppId, desktopPath},
+        details: {browser, webAppId, profilePath, desktopPath},
       };
     }
 
@@ -374,23 +412,59 @@ export class PackageDetector {
     return null;
   }
 
+  _detectNix(desktopPath, keyFileData) {
+    const exec = keyFileData.exec || '';
+    const isNixPath = desktopPath.includes('/nix/store/') ||
+                      desktopPath.includes('/.nix-profile/') ||
+                      desktopPath.startsWith('/run/current-system/sw/') ||
+                      desktopPath.includes('/profiles/per-user/') ||
+                      exec.includes('/nix/store/') ||
+                      exec.includes('/.nix-profile/');
+
+    if (isNixPath) {
+      const pkgMatch = exec.match(/\/nix\/store\/[a-z0-9]+-([^/]+)\//) ||
+                       desktopPath.match(/\/nix\/store\/[a-z0-9]+-([^/]+)\//);
+      const identifier = pkgMatch ? pkgMatch[1] : desktopPath.split('/').pop().replace(/\.desktop$/, '');
+      return {
+        type: PackageType.NIX,
+        identifier,
+        details: {pkgName: identifier, desktopPath},
+      };
+    }
+
+    return null;
+  }
+
   _detectCustom(appId, desktopPath, keyFileData) {
     const homeDir = GLib.get_home_dir();
-    const isUserDesktop = desktopPath.startsWith(homeDir + '/.local/share/applications/');
+    const isUserDesktop = homeDir ? desktopPath.startsWith(homeDir + '/.local/share/applications/') : false;
     const isLocalSystemDesktop = desktopPath.startsWith('/usr/local/share/applications/');
+    const isGlobalSystemDesktop = desktopPath.startsWith('/usr/share/applications/');
 
-    if (isUserDesktop || isLocalSystemDesktop) {
+    if (isUserDesktop || isLocalSystemDesktop || isGlobalSystemDesktop) {
       const exec = keyFileData.exec || '';
-      const execPathMatch = exec.match(/^"?([^"\s]+)/);
-      const execPath = execPathMatch ? execPathMatch[1] : '';
+      const execBinary = this._extractExecBinary(exec);
+      const pathKey = keyFileData.path || '';
+
+      const installDir = this._resolveInstallDir(execBinary, pathKey, desktopPath);
+      const uninstallerScript = this._findUninstaller(installDir);
+
+      const isUserLevel = isUserDesktop &&
+        (!installDir || (homeDir && installDir.startsWith(homeDir))) &&
+        (!execBinary || (homeDir && execBinary.startsWith(homeDir)));
+
+      const identifier = desktopPath.split('/').pop().replace(/\.desktop$/, '');
 
       return {
         type: PackageType.CUSTOM,
-        identifier: desktopPath.split('/').pop().replace(/\.desktop$/, ''),
+        identifier,
+        scope: isUserLevel ? 'user' : 'system',
         details: {
           desktopPath,
-          execPath,
-          isUserLevel: isUserDesktop,
+          execPath: execBinary,
+          installDir,
+          uninstallerScript,
+          isUserLevel,
           icon: keyFileData.icon,
         },
       };
@@ -399,11 +473,108 @@ export class PackageDetector {
     return null;
   }
 
-  async _detectApt(desktopPath) {
+  _extractExecBinary(execLine) {
+    if (!execLine)
+      return '';
+    const match = execLine.match(/^"([^"]+)"|^(\S+)/);
+    return match ? (match[1] || match[2]) : '';
+  }
+
+  _resolveInstallDir(execPath, pathKey, desktopPath) {
+    if (pathKey && GLib.file_test(pathKey, GLib.FileTest.IS_DIR)) {
+      if (SystemAppGuard.isSafeDirectoryToDelete(pathKey))
+        return pathKey;
+    }
+
+    if (!execPath)
+      return null;
+
+    const cleanExec = execPath.replace(/^"/, '').replace(/"$/, '');
+
+    // 1. /opt/<app-dir>
+    const optMatch = cleanExec.match(/^(\/opt\/[^/]+)/);
+    if (optMatch && GLib.file_test(optMatch[1], GLib.FileTest.IS_DIR)) {
+      if (SystemAppGuard.isSafeDirectoryToDelete(optMatch[1]))
+        return optMatch[1];
+    }
+
+    // 2. ~/Applications/<app-dir>
+    const homeDir = GLib.get_home_dir();
+    if (homeDir && cleanExec.startsWith(`${homeDir}/Applications/`)) {
+      const sub = cleanExec.slice(`${homeDir}/Applications/`.length);
+      const parts = sub.split('/');
+      if (parts.length > 1) {
+        const candidate = `${homeDir}/Applications/${parts[0]}`;
+        if (GLib.file_test(candidate, GLib.FileTest.IS_DIR) && SystemAppGuard.isSafeDirectoryToDelete(candidate))
+          return candidate;
+      }
+    }
+
+    // 3. ~/.local/opt/<app-dir>
+    if (homeDir && cleanExec.startsWith(`${homeDir}/.local/opt/`)) {
+      const sub = cleanExec.slice(`${homeDir}/.local/opt/`.length);
+      const parts = sub.split('/');
+      if (parts.length > 1) {
+        const candidate = `${homeDir}/.local/opt/${parts[0]}`;
+        if (GLib.file_test(candidate, GLib.FileTest.IS_DIR) && SystemAppGuard.isSafeDirectoryToDelete(candidate))
+          return candidate;
+      }
+    }
+
+    // 4. ~/.local/share/<app-dir>
+    if (homeDir && cleanExec.startsWith(`${homeDir}/.local/share/`)) {
+      const sub = cleanExec.slice(`${homeDir}/.local/share/`.length);
+      const parts = sub.split('/');
+      if (parts.length > 1 && !['applications', 'icons', 'themes', 'flatpak', 'Trash', 'mime', 'gnome-shell'].includes(parts[0])) {
+        const candidate = `${homeDir}/.local/share/${parts[0]}`;
+        if (GLib.file_test(candidate, GLib.FileTest.IS_DIR) && SystemAppGuard.isSafeDirectoryToDelete(candidate))
+          return candidate;
+      }
+    }
+
+    // 5. /usr/local/share/<app-dir>
+    const localShareMatch = cleanExec.match(/^(\/usr\/local\/share\/[^/]+)/);
+    if (localShareMatch && !localShareMatch[1].startsWith('/usr/local/share/applications')) {
+      if (GLib.file_test(localShareMatch[1], GLib.FileTest.IS_DIR) && SystemAppGuard.isSafeDirectoryToDelete(localShareMatch[1]))
+        return localShareMatch[1];
+    }
+
+    return null;
+  }
+
+  _findUninstaller(installDir) {
+    if (!installDir || !GLib.file_test(installDir, GLib.FileTest.IS_DIR))
+      return null;
+
+    const candidates = [
+      'uninstall.sh',
+      'Uninstall.sh',
+      'uninstall',
+      'Uninstall',
+      'bin/uninstall.sh',
+      'bin/uninstall',
+      'uninstall.bin',
+    ];
+
+    for (const rel of candidates) {
+      const fullPath = `${installDir}/${rel}`;
+      if (GLib.file_test(fullPath, GLib.FileTest.IS_REGULAR))
+        return fullPath;
+    }
+
+    return null;
+  }
+
+  async _detectApt(desktopPath, execBinary = null) {
     if (GLib.find_program_in_path('dpkg') === null)
       return null;
 
-    const result = await this._runAsync(['dpkg', '-S', desktopPath]);
+    let result = await this._runAsync(['dpkg', '-S', desktopPath]);
+    if ((!result.ok || result.status !== 0 || !result.stdout) && execBinary) {
+      if (execBinary.startsWith('/usr/') || execBinary.startsWith('/bin/'))
+        result = await this._runAsync(['dpkg', '-S', execBinary]);
+    }
+
     if (!result.ok || result.status !== 0 || !result.stdout)
       return null;
 
@@ -411,36 +582,57 @@ export class PackageDetector {
     if (!firstLine.includes(':'))
       return null;
 
-    let pkg = firstLine.split(':')[0].trim();
-    // Strip architecture e.g. "google-chrome-stable:amd64" -> "google-chrome-stable"
+    let pkgPart = firstLine.split(':')[0].trim();
+    if (pkgPart.startsWith('diversion by'))
+      return null;
+
+    const packages = pkgPart.split(',').map(p => p.trim());
+    let pkg = packages[0];
     if (pkg.includes(':'))
       pkg = pkg.split(':')[0].trim();
 
     return pkg || null;
   }
 
-  async _detectRpm(desktopPath) {
+  async _detectRpm(desktopPath, execBinary = null) {
     if (GLib.find_program_in_path('rpm') === null)
       return null;
 
-    const result = await this._runAsync([
+    let result = await this._runAsync([
       'rpm',
       '-qf',
       desktopPath,
       '--queryformat',
       '%{NAME}',
     ]);
+    if ((!result.ok || result.status !== 0 || !result.stdout) && execBinary) {
+      if (execBinary.startsWith('/usr/') || execBinary.startsWith('/bin/')) {
+        result = await this._runAsync([
+          'rpm',
+          '-qf',
+          execBinary,
+          '--queryformat',
+          '%{NAME}',
+        ]);
+      }
+    }
+
     if (!result.ok || result.status !== 0 || !result.stdout)
       return null;
 
     return result.stdout.trim() || null;
   }
 
-  async _detectPacman(desktopPath) {
+  async _detectPacman(desktopPath, execBinary = null) {
     if (GLib.find_program_in_path('pacman') === null)
       return null;
 
-    const result = await this._runAsync(['pacman', '-Qo', desktopPath]);
+    let result = await this._runAsync(['pacman', '-Qo', desktopPath]);
+    if ((!result.ok || result.status !== 0 || !result.stdout) && execBinary) {
+      if (execBinary.startsWith('/usr/') || execBinary.startsWith('/bin/'))
+        result = await this._runAsync(['pacman', '-Qo', execBinary]);
+    }
+
     if (!result.ok || result.status !== 0 || !result.stdout)
       return null;
 

@@ -1,5 +1,5 @@
 Name:           gnome-shell-appgrid-uninstall
-Version:        1.0.0
+Version:        1.2.0
 Release:        1%{?dist}
 Summary:        Right-click uninstall option for GNOME App Grid
 

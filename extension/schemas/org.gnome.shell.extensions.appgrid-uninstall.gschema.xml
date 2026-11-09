@@ -82,6 +82,11 @@
       <summary>Enable uninstall option for Pipx apps</summary>
     </key>
 
+    <key name="enable-for-nix" type="b">
+      <default>true</default>
+      <summary>Enable uninstall option for Nix package manager apps</summary>
+    </key>
+
     <key name="enable-for-steam" type="b">
       <default>true</default>
       <summary>Enable uninstall option for Steam games</summary>
